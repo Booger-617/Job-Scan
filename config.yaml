@@ -1,0 +1,189 @@
+# jobscan config - edit freely, everything here is data not code.
+# After editing sources, run:  python -m jobscan verify
+
+locations:
+  # Location is a mild tiebreak, not a filter - role fit decides the ranking.
+  # The one exception is non-US: that is a work-authorization dead end, not a
+  # preference, so it stays heavily penalised.
+  strict: false
+  # Non-US is a hard block, not a deduction: the LLM score overrides the
+  # rule score, so a deduction alone lets a strong foreign posting climb back.
+  block_non_us: true
+  points:
+    preferred:  5
+    acceptable: 3
+    us_other:   2     # anywhere else in the US
+    remote_us:  3
+    non_us:      -45
+    unconfirmed: -35   # no US state/country marker found in the location
+    unknown:    0     # Workday's "5 Locations" and other unscoreable strings
+  preferred:          # REPLACE with your own target metro (scores +5)
+    - "YOUR CITY"
+    - "YOUR STATE"
+  acceptable:
+    - "New York"
+    - "NYC"
+    - "Baltimore"
+    - "Philadelphia"
+    - "Boston"
+    - "Charlotte"
+    - "Richmond"
+    - "Chicago"
+    - "Atlanta"
+    - "Dallas"
+    - "Austin"
+    - "Denver"
+    - "Seattle"
+    - "San Francisco"
+    - "Los Angeles"
+
+scoring:
+  block_citizenship_required: true   # drop "US citizens only" / clearance postings
+  block_no_sponsorship: true         # drop postings that state they will not sponsor
+  keyword_cap: 40
+  stale_days: 45
+  # Elite prop/HFT shops hire PhD quant researchers and C++ engineers. Their
+  # postings keyword-match beautifully and are still unreachable, so they get
+  # pushed down rather than removed - occasionally a risk or data seat is real.
+  # Defense/intel primes. Effectively every seat needs a security clearance you
+  # cannot obtain, and the aggregator JD text usually never spells that out.
+  block_employers:
+    - Booz Allen
+    - SAIC
+    - Leidos
+    - CACI
+    - ManTech
+    - Peraton
+    - MITRE
+    - Northrop
+    - Lockheed
+    - Raytheon
+    - RTX
+    - General Dynamics
+    - L3Harris
+    - Parsons
+    - Amentum
+    - KBR
+    - Battelle
+    - Government Services
+    - Federal Solutions
+
+  deprioritize_penalty: 35
+  deprioritize_employers:
+    - Squarepoint
+    - Point72
+    - Jump Trading
+    - DRW
+    - IMC
+    - Akuna
+
+llm:
+  enabled: true
+  model: claude-sonnet-5
+  min_rule_score: 35        # only postings above this reach the API
+  max_jobs_per_run: 50      # hard ceiling on cost per run
+  batch_size: 8
+  jd_chars: 3500
+  # Adaptive thinking is on by default and its tokens count against max_tokens.
+  # At 2000 this silently truncated the JSON on 4 of 7 batches.
+  max_tokens: 16000
+  structured: true          # API-enforced JSON schema; turn off only to debug
+  effort: low               # bounded classification - deep thinking is wasted here
+
+output:
+  db: data/jobs.db
+  csv: true
+  csv_path: reports/jobs.csv
+  html_dir: reports
+  min_report_score: 48      # below this it never shows in the HTML
+  carryover_days: 10
+  open_browser: true
+
+sources:
+
+  greenhouse:
+    enabled: true
+    # `token` is the slug in boards.greenhouse.io/<token>.
+    # Every entry below was confirmed live by `verify` on 2026-08-17.
+    boards:
+      - {name: "AQR",              token: aqr}
+      - {name: "Point72",          token: point72}
+      - {name: "Squarepoint",      token: squarepointcapital}
+      - {name: "AlphaSense",       token: alphasense}
+      - {name: "Betterment",       token: betterment}
+      - {name: "Robinhood",        token: robinhood}
+      - {name: "Affirm",           token: affirm}
+      - {name: "Brex",             token: brex}
+      - {name: "Chime",            token: chime}
+      - {name: "Marqeta",          token: marqeta}
+      - {name: "Coinbase",         token: coinbase}
+      - {name: "Stripe",           token: stripe}
+      # Prop/HFT shops - mostly C++ roles the rules will down-rank, but they do
+      # post quant research and risk seats. Delete if the noise annoys you.
+      - {name: "Jump Trading",     token: jumptrading}
+      - {name: "DRW",              token: drweng}
+      - {name: "IMC",              token: imc}
+      - {name: "Akuna Capital",    token: akunacapital}
+
+  lever:
+    enabled: true
+    # `slug` is the path in jobs.lever.co/<slug>. Thin list - most finance
+    # employers are on Greenhouse or Workday instead.
+    companies:
+      - {name: "Kraken",           slug: kraken}
+      - {name: "Alloy",            slug: alloy}
+
+  workday:
+    enabled: true
+    max_pages: 8
+    detail_limit: 500      # how many Workday postings get their full JD fetched
+    detail_workers: 10
+    search_terms:
+      - "quantitative"
+      - "data analyst"
+      - "risk analyst"
+      - "financial analyst"
+      - "data scientist"
+    # Pattern: https://<tenant>.wdN.myworkdayjobs.com/wday/cxs/<tenant>/<SITE>/jobs
+    # All 13 confirmed live by `verify` on 2026-08-17. Tenant/site slugs are not
+    # guessable - if one starts 404ing, re-probe rather than hand-editing.
+    tenants:
+      - {name: "Capital One",   url: "https://capitalone.wd12.myworkdayjobs.com/wday/cxs/capitalone/Capital_One/jobs"}
+      - {name: "Fannie Mae",    url: "https://fanniemae.wd1.myworkdayjobs.com/wday/cxs/fanniemae/FannieMaeCareers/jobs"}
+      - {name: "Freddie Mac",   url: "https://freddiemac.wd5.myworkdayjobs.com/wday/cxs/freddiemac/External/jobs"}
+      - {name: "Guidehouse",    url: "https://guidehouse.wd1.myworkdayjobs.com/wday/cxs/guidehouse/External/jobs"}
+      - {name: "CoStar Group",  url: "https://costar.wd1.myworkdayjobs.com/wday/cxs/costar/CoStarCareers/jobs"}
+      - {name: "PwC US",        url: "https://pwc.wd3.myworkdayjobs.com/wday/cxs/pwc/Global_Experienced_Careers/jobs"}
+      - {name: "S&P Global",    url: "https://spgi.wd5.myworkdayjobs.com/wday/cxs/spgi/SPGI_Careers/jobs"}
+      - {name: "Morningstar",   url: "https://morningstar.wd5.myworkdayjobs.com/wday/cxs/morningstar/Morningstar/jobs"}
+      - {name: "State Street",  url: "https://statestreet.wd1.myworkdayjobs.com/wday/cxs/statestreet/Global/jobs"}
+      - {name: "Vanguard",      url: "https://vanguard.wd5.myworkdayjobs.com/wday/cxs/vanguard/vanguard_external/jobs"}
+      - {name: "TIAA",          url: "https://tiaa.wd1.myworkdayjobs.com/wday/cxs/tiaa/Search/jobs"}
+      - {name: "PNC",           url: "https://pnc.wd5.myworkdayjobs.com/wday/cxs/pnc/External/jobs"}
+      - {name: "Truist",        url: "https://truist.wd1.myworkdayjobs.com/wday/cxs/truist/Careers/jobs"}
+
+  jobspy:
+    # OFF by default. This source scrapes Indeed/LinkedIn rather than using a
+    # public API, and those sites' terms restrict automated access - read the
+    # README section before turning it on. Also needs: pip install python-jobspy
+    enabled: false
+    sites: [indeed, linkedin]
+    country_indeed: USA
+    hours_old: 168           # only postings from the last 7 days
+    results_wanted: 40
+    # One nationwide sweep, not one per city - location is only a tiebreak now,
+    # and every extra (term x location) pair is another chance to get rate-limited.
+    locations:
+      - "United States"
+    search_terms:
+      - "quantitative analyst"
+      - "model risk analyst"
+      - "data analyst finance"
+      - "financial data scientist"
+      - "quantitative research analyst"
+      - "credit risk analyst"
+
+  rss:
+    enabled: false           # turn on once you paste real feed URLs below
+    feeds: []
+      # - {name: "LinkedIn saved search", url: "https://..."}

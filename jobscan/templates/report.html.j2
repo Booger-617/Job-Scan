@@ -1,0 +1,259 @@
+<!doctype html>
+<html lang="zh">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Jobscan {{ meta.date }}</title>
+<style>
+  :root{
+    --bg:#fbfaf8; --card:#fff; --fg:#1c1b19; --muted:#6d6a64; --line:#e5e2dc;
+    --accent:#b4552d; --good:#2f7d5c; --warn:#a8791f; --bad:#a33a3a; --chip:#f2efe9;
+  }
+  @media (prefers-color-scheme: dark){
+    :root{ --bg:#17161a; --card:#201f24; --fg:#eceae6; --muted:#a09c95; --line:#33313a;
+           --accent:#e08256; --good:#5fb98d; --warn:#d6a94a; --bad:#e0736f; --chip:#2b2a31; }
+  }
+  *{box-sizing:border-box}
+  body{margin:0;padding:28px 20px 60px;background:var(--bg);color:var(--fg);
+       font:15px/1.55 -apple-system,"Segoe UI",Roboto,"Helvetica Neue","PingFang SC","Microsoft YaHei",sans-serif;}
+  .wrap{max-width:1180px;margin:0 auto}
+  h1{font-size:22px;margin:0 0 4px;letter-spacing:-.01em}
+  .sub{color:var(--muted);font-size:13px;margin-bottom:22px}
+  .bar{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:24px}
+  .stat{background:var(--card);border:1px solid var(--line);border-radius:9px;padding:9px 13px;font-size:13px}
+  .stat b{font-size:17px;display:block;line-height:1.2}
+  h2{font-size:15px;margin:30px 0 12px;padding-bottom:7px;border-bottom:1px solid var(--line);
+     text-transform:uppercase;letter-spacing:.07em;color:var(--muted);font-weight:600}
+  .job{background:var(--card);border:1px solid var(--line);border-left:3px solid var(--line);
+       border-radius:9px;padding:14px 16px;margin-bottom:9px}
+  .job.s90{border-left-color:var(--good)} .job.s75{border-left-color:var(--accent)}
+  .job.s60{border-left-color:var(--warn)}
+  .top{display:flex;gap:12px;align-items:baseline;flex-wrap:wrap}
+  .score{font-size:19px;font-weight:700;min-width:34px;font-variant-numeric:tabular-nums}
+  .s90 .score{color:var(--good)} .s75 .score{color:var(--accent)} .s60 .score{color:var(--warn)}
+  .title{font-weight:600;font-size:15px}
+  .title a{color:inherit;text-decoration:none;border-bottom:1px solid var(--line)}
+  .title a:hover{border-bottom-color:var(--accent);color:var(--accent)}
+  .co{color:var(--muted);font-size:13px}
+  .chips{margin-top:7px;display:flex;flex-wrap:wrap;gap:5px}
+  .chip{background:var(--chip);border-radius:5px;padding:2px 7px;font-size:11px;color:var(--muted)}
+  .chip.risk{color:var(--bad);font-weight:600}
+  .chip.ok{color:var(--good)}
+  .why{margin-top:8px;font-size:13px;display:grid;grid-template-columns:52px 1fr;gap:3px 9px}
+  .lbl{color:var(--muted);font-size:11px;text-transform:uppercase;letter-spacing:.05em;padding-top:2px}
+  details{margin-top:7px}
+  summary{cursor:pointer;font-size:11.5px;color:var(--muted);outline:none}
+  .notes{font-size:11.5px;color:var(--muted);margin-top:5px;font-family:ui-monospace,Consolas,monospace;
+         line-height:1.7;word-break:break-word}
+  .empty{color:var(--muted);font-style:italic;padding:14px 0}
+  footer{margin-top:36px;padding-top:14px;border-top:1px solid var(--line);color:var(--muted);font-size:12px}
+  code{background:var(--chip);padding:1px 5px;border-radius:4px;font-size:12px}
+
+  /* --- applied checkbox --- */
+  .top{position:relative}
+  .mark{display:flex;align-items:center;gap:6px;cursor:pointer;user-select:none;
+        margin-left:auto;font-size:12px;color:var(--muted);white-space:nowrap;
+        padding:3px 8px;border:1px solid var(--line);border-radius:6px;background:transparent}
+  .mark:hover{border-color:var(--good);color:var(--good)}
+  .mark input{width:15px;height:15px;accent-color:var(--good);cursor:pointer;margin:0}
+  .job.done{opacity:.45}
+  .job.done .title a{text-decoration:line-through}
+  .job.done .mark{color:var(--good);border-color:var(--good)}
+  .job.locked .mark{opacity:.6;cursor:default}
+
+  /* --- sticky sync bar --- */
+  #syncbar{position:fixed;left:0;right:0;bottom:0;z-index:50;
+           background:var(--card);border-top:1px solid var(--line);
+           box-shadow:0 -3px 14px rgba(0,0,0,.10);padding:10px 20px;
+           display:none;align-items:center;gap:12px;flex-wrap:wrap;font-size:13px}
+  #syncbar.on{display:flex}
+  #syncbar .n{font-weight:700;color:var(--good)}
+  #syncbar code{font-size:11.5px;max-width:min(52vw,620px);overflow:hidden;
+                text-overflow:ellipsis;white-space:nowrap;display:inline-block;vertical-align:middle}
+  .btn{border:1px solid var(--line);background:var(--chip);color:var(--fg);
+       border-radius:6px;padding:5px 11px;font-size:12.5px;cursor:pointer;font-family:inherit}
+  .btn:hover{border-color:var(--accent);color:var(--accent)}
+  .btn.primary{background:var(--accent);color:#fff;border-color:var(--accent)}
+  .btn.primary:hover{opacity:.88;color:#fff}
+  .spacer{height:64px}
+</style>
+</head>
+<body><div class="wrap">
+
+  <h1>今日岗位扫描</h1>
+  <div class="sub">{{ meta.date }} · 抓取 {{ meta.fetched }} 条 · 规则过滤后 {{ meta.after_rules }} 条 · LLM 复筛 {{ meta.llm_scored }} 条{% if not meta.llm_on %} · <b>LLM 未启用（仅规则分）</b>{% endif %}</div>
+
+  <div class="bar">
+    <div class="stat"><b>{{ new_jobs|length }}</b>今日新增</div>
+    <div class="stat"><b>{{ meta.blocked }}</b>签证/公民身份拦截</div>
+    <div class="stat"><b>{{ carryover|length }}</b>近期未投</div>
+    <div class="stat"><b>{{ meta.total_tracked }}</b>库内累计</div>
+  </div>
+
+  <h2>今日新增（按匹配度）</h2>
+  {% if not new_jobs %}<div class="empty">今天没有新岗位命中。数据源可能都没更新，或者阈值调太高了。</div>{% endif %}
+  {% for j in new_jobs %}
+  {% set cls = 's90' if j.final_score >= 85 else ('s75' if j.final_score >= 70 else ('s60' if j.final_score >= 55 else '')) %}
+  <div class="job {{ cls }}{% if j.status == 'applied' %} done locked{% endif %}" data-id="{{ j.id }}">
+    <div class="top">
+      <div class="score">{{ j.final_score }}</div>
+      <div>
+        <div class="title"><a href="{{ j.url }}" target="_blank" rel="noopener">{{ j.title }}</a></div>
+        <div class="co">{{ j.company }}{% if j.location %} · {{ j.location }}{% endif %}</div>
+      </div>
+      <label class="mark" title="投完勾上">
+        <input type="checkbox" class="applied-box"
+               {% if j.status == 'applied' %}checked disabled{% endif %}>
+        <span>{% if j.status == 'applied' %}已投递{% else %}标记已投{% endif %}</span>
+      </label>
+    </div>
+    <div class="chips">
+      <span class="chip">{{ j.source }}</span>
+      {% if j.llm_verdict %}<span class="chip">{{ j.llm_verdict }}</span>{% endif %}
+      {% if j.posted_at %}<span class="chip">posted {{ j.posted_at[:10] }}</span>{% endif %}
+      {% if j.sponsor_risk == 'likely_blocked' %}<span class="chip risk">签证风险高</span>
+      {% elif j.sponsor_risk == 'likely_ok' %}<span class="chip ok">签证大概率 OK</span>
+      {% elif j.sponsor_risk %}<span class="chip">签证情况不明</span>{% endif %}
+      <span class="chip">id {{ j.id[:8] }}</span>
+    </div>
+    {% if j.llm_reason or j.llm_match %}
+    <div class="why">
+      {% if j.llm_match %}<div class="lbl">匹配</div><div>{{ j.llm_match }}</div>{% endif %}
+      {% if j.llm_gap %}<div class="lbl">差距</div><div>{{ j.llm_gap }}</div>{% endif %}
+      {% if j.llm_reason %}<div class="lbl">判断</div><div>{{ j.llm_reason }}</div>{% endif %}
+    </div>
+    {% endif %}
+    <details><summary>规则打分明细</summary><div class="notes">{{ j.rule_notes }}</div></details>
+  </div>
+  {% endfor %}
+
+  <h2>近 {{ meta.carry_days }} 天内还没投的高分岗位</h2>
+  {% if not carryover %}<div class="empty">没有积压。</div>{% endif %}
+  {% for j in carryover %}
+  <div class="job" data-id="{{ j.id }}">
+    <div class="top">
+      <div class="score">{{ j.final_score }}</div>
+      <div>
+        <div class="title"><a href="{{ j.url }}" target="_blank" rel="noopener">{{ j.title }}</a></div>
+        <div class="co">{{ j.company }}{% if j.location %} · {{ j.location }}{% endif %} · 首次发现 {{ j.first_seen[:10] }}</div>
+      </div>
+      <label class="mark" title="投完勾上">
+        <input type="checkbox" class="applied-box">
+        <span>标记已投</span>
+      </label>
+    </div>
+    {% if j.llm_reason %}
+    <div class="why">
+      {% if j.llm_match %}<div class="lbl">匹配</div><div>{{ j.llm_match }}</div>{% endif %}
+      <div class="lbl">判断</div><div>{{ j.llm_reason }}</div>
+    </div>
+    {% endif %}
+  </div>
+  {% endfor %}
+
+  <footer>
+    勾选会立刻记在这台浏览器里，跨每天的新报告都保留。<br>
+    要让岗位不再出现在积压区，把底部那条命令粘到终端跑一次即可。<br>
+    数据库 <code>{{ meta.db }}</code> · CSV <code>{{ meta.csv }}</code>
+  </footer>
+
+  <div class="spacer"></div>
+</div>
+
+<div id="syncbar">
+  <span>已勾选 <span class="n" id="cnt">0</span> 个</span>
+  <code id="cmd"></code>
+  <button class="btn primary" id="copy">复制标记命令</button>
+  <button class="btn" id="clear">清空勾选</button>
+</div>
+
+<script>
+(function () {
+  // The report is a local file, so the page cannot write to the SQLite database
+  // itself. Ticks live in localStorage (shared across every file:// report, so
+  // they survive tomorrow's regenerated page), and the bar hands you one command
+  // that syncs them into the database.
+  var KEY = "jobscan.applied.v1";
+
+  function load() {
+    try { return JSON.parse(localStorage.getItem(KEY) || "{}") || {}; }
+    catch (e) { return {}; }
+  }
+  function save(state) {
+    try { localStorage.setItem(KEY, JSON.stringify(state)); } catch (e) {}
+  }
+
+  var state = load();
+  var bar = document.getElementById("syncbar");
+  var cntEl = document.getElementById("cnt");
+  var cmdEl = document.getElementById("cmd");
+
+  function shortIds() {
+    return Object.keys(state).map(function (id) { return id.slice(0, 8); });
+  }
+
+  function refresh() {
+    var ids = shortIds();
+    cntEl.textContent = ids.length;
+    cmdEl.textContent = ids.length
+      ? "python -m jobscan applied " + ids.join(" ")
+      : "";
+    bar.className = ids.length ? "on" : "";
+  }
+
+  document.querySelectorAll(".job[data-id]").forEach(function (card) {
+    var id = card.getAttribute("data-id");
+    var box = card.querySelector(".applied-box");
+    if (!box) return;
+    if (box.disabled) return;            // already applied per the database
+
+    if (state[id]) { box.checked = true; card.classList.add("done"); }
+
+    box.addEventListener("change", function () {
+      if (box.checked) {
+        state[id] = new Date().toISOString();
+        card.classList.add("done");
+      } else {
+        delete state[id];
+        card.classList.remove("done");
+      }
+      save(state);
+      refresh();
+    });
+  });
+
+  document.getElementById("copy").addEventListener("click", function () {
+    var text = cmdEl.textContent;
+    if (!text) return;
+    var btn = this;
+    function done() { btn.textContent = "已复制 ✓"; setTimeout(function () {
+      btn.textContent = "复制标记命令"; }, 1600); }
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(text).then(done, fallback);
+    } else { fallback(); }
+    function fallback() {
+      var ta = document.createElement("textarea");
+      ta.value = text; ta.style.position = "fixed"; ta.style.opacity = "0";
+      document.body.appendChild(ta); ta.select();
+      try { document.execCommand("copy"); done(); } catch (e) {
+        window.prompt("复制这条命令：", text);
+      }
+      document.body.removeChild(ta);
+    }
+  });
+
+  document.getElementById("clear").addEventListener("click", function () {
+    if (!window.confirm("清空所有勾选？数据库里已标记的不受影响。")) return;
+    state = {};
+    save(state);
+    document.querySelectorAll(".job[data-id]").forEach(function (card) {
+      var box = card.querySelector(".applied-box");
+      if (box && !box.disabled) { box.checked = false; card.classList.remove("done"); }
+    });
+    refresh();
+  });
+
+  refresh();
+})();
+</script>
+</body></html>
